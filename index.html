@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>悄悄话邮筒</title>
+<style>
+:root {
+  color-scheme: light;
+  --ground: #F4F5F3;
+  --surface: #FFFFFF;
+  --mine: #EDF3EF;
+  --ink: #1C1F1D;
+  --ink-2: #636A65;
+  --ink-3: #979E99;
+  --line: #E1E5E0;
+  --accent: #2F6B53;
+  --accent-hover: #255843;
+  --accent-ink: #FFFFFF;
+  --warm: #93620F;
+  --warm-bg: #FAF0DA;
+  --danger: #A63D36;
+  --font: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --ground: #121413;
+    --surface: #1B1E1C;
+    --mine: #1D2722;
+    --ink: #E5E9E6;
+    --ink-2: #9CA49F;
+    --ink-3: #6F7772;
+    --line: #2A2F2C;
+    --accent: #6DB391;
+    --accent-hover: #84C4A4;
+    --accent-ink: #0E1411;
+    --warm: #E4B862;
+    --warm-bg: #2D2618;
+    --danger: #E07A71;
+  }
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap {
+  max-width: 600px;
+  margin: 0 auto;
+  padding-inline: 16px;
+  padding-block: calc(40px + env(safe-area-inset-top, 0px)) calc(72px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: .04em; }
+.notice { margin: 0; font-size: 14px; color: var(--danger); }
+.fine { margin: 0; font-size: 13px; color: var(--ink-3); }
+
+textarea, input[type="text"] {
+  display: block;
+  width: 100%;
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  resize: none;
+}
+textarea::placeholder, input::placeholder { color: var(--ink-3); }
+textarea:focus, input[type="text"]:focus { outline: none; border-color: var(--accent); }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ---------- setup ---------- */
+.setup { padding: 20px; gap: 14px; }
+.setup label.title, .setup legend { font-size: 14px; font-weight: 600; padding: 0; margin-bottom: 6px; }
+.setup fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.roles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.role-in { position: absolute; opacity: 0; pointer-events: none; }
+.role-lb {
+  display: block;
+  text-align: center;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--ink-2);
+  cursor: pointer;
+  user-select: none;
+}
+.role-in:checked + .role-lb { border-color: var(--accent); color: var(--accent); font-weight: 600; background: var(--mine); }
+.role-in:focus-visible + .role-lb { outline: 2px solid var(--accent); outline-offset: 2px; }
+.setup .btn { align-self: flex-start; }
+
+/* ---------- compose ---------- */
+.compose textarea { border: 0; padding: 4px; min-height: 96px; line-height: 1.75; resize: vertical; }
+.compose-row { display: flex; justify-content: flex-end; }
+
+.btn {
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.2;
+  padding: 9px 18px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn:hover { background: var(--accent-hover); }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.small { padding: 7px 14px; font-size: 13.5px; }
+.btn.ghost { background: transparent; color: var(--ink-2); border: 1px solid var(--line); }
+.btn.ghost:hover { color: var(--ink); border-color: var(--ink-3); }
+.btn.warm { background: var(--warm-bg); color: var(--warm); }
+.btn.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+.btn:focus-visible, .seg button:focus-visible, .textbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.textbtn { font: inherit; font-size: 13px; background: none; border: 0; padding: 2px 0; color: var(--ink-3); cursor: pointer; }
+.textbtn:hover { color: var(--ink); }
+
+/* ---------- inbox / sent switch ---------- */
+#app { display: flex; flex-direction: column; gap: 20px; }
+.seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  border-radius: 12px;
+}
+.seg button {
+  font: inherit;
+  font-size: 14.5px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+}
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, .08); }
+.badge {
+  min-width: 18px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- letter cards ---------- */
+#list { display: flex; flex-direction: column; gap: 12px; }
+#list:empty { display: none; }
+.empty { margin: 0; color: var(--ink-3); font-size: 14px; text-align: center; padding-block: 28px; }
+
+.item {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.item.mine { background: var(--mine); border-color: transparent; }
+.item-main { display: flex; flex-direction: column; gap: 6px; }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; font-size: 12.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.who { color: var(--ink-2); font-weight: 600; }
+.new { color: var(--accent); font-weight: 600; }
+.wobble { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--warm-bg); color: var(--warm); font-weight: 500; }
+.text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.75; }
+.item-main > .text { font-size: 15.5px; }
+
+.replies {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.item.mine .replies { border-top-color: color-mix(in srgb, var(--ink) 10%, transparent); }
+.replies .text { font-size: 14.5px; }
+
+.reply-box { display: flex; gap: 8px; align-items: flex-end; }
+.reply-box textarea { font-size: 14.5px; line-height: 1.6; padding: 7px 12px; border-radius: 8px; min-height: 38px; overflow: hidden; }
+
+.item-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; }
+.item-foot:empty { display: none; }
+.foot-note { margin-right: auto; font-size: 13px; color: var(--ink-2); }
+
+.toast {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  max-width: calc(100% - 32px);
+  background: var(--ink);
+  color: var(--ground);
+  padding: 9px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  z-index: 10;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>悄悄话邮筒</h1>
+    <button type="button" class="textbtn" id="logout" hidden>换暗号</button>
+  </header>
+  <p id="notice" class="notice" role="status" hidden></p>
+
+  <form id="setup" class="card setup" autocomplete="off" hidden>
+    <div>
+      <label class="title" for="phrase">你们俩的暗号</label>
+      <input id="phrase" type="text" spellcheck="false" autocapitalize="off" placeholder="至少 8 个字，只有你们俩知道">
+    </div>
+    <fieldset>
+      <legend>你是</legend>
+      <div class="roles">
+        <input class="role-in" type="radio" name="role" id="role-a" value="A"><label class="role-lb" for="role-a">A</label>
+        <input class="role-in" type="radio" name="role" id="role-b" value="B"><label class="role-lb" for="role-b">B</label>
+      </div>
+    </fieldset>
+    <p class="fine">两个人各选一个不同的。以后在别的手机或电脑上打开，输入同样的暗号、选同一个字母。</p>
+    <button type="submit" class="btn" id="enter">进入</button>
+    <p class="fine">暗号本身不会上传。信在离开你的设备之前就加密了，不知道暗号的人打开链接也看不到内容。</p>
+  </form>
+
+  <div id="app" hidden>
+    <section class="card compose" aria-label="写信">
+      <label class="sr" for="body">信的内容</label>
+      <textarea id="body" rows="4" maxlength="2000" placeholder="写点什么……"></textarea>
+      <div class="compose-row">
+        <button type="button" class="btn" id="send">发送</button>
+      </div>
+    </section>
+
+    <nav class="seg" aria-label="切换信件">
+      <button type="button" data-tab="in" aria-pressed="true">收到的<span class="badge" id="badge-in" hidden></span></button>
+      <button type="button" data-tab="out" aria-pressed="false">寄出的<span class="badge" id="badge-out" hidden></span></button>
+    </nav>
+
+    <section aria-label="信件">
+      <div id="list"></div>
+      <p id="list-state" class="empty">加载中……</p>
+    </section>
+  </div>
+</div>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="config.js"></script>
+<script>
+(() => {
+  'use strict';
+
+  /* ---------- helpers ---------- */
+  const $ = (s) => document.querySelector(s);
+  function h(tag, attrs, ...kids) {
+    const el = document.createElement(tag);
+    if (attrs) {
+      for (const [k, v] of Object.entries(attrs)) {
+        if (v == null || v === false) continue;
+        if (k === 'class') el.className = v;
+        else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+        else if (v === true) el.setAttribute(k, '');
+        else el.setAttribute(k, v);
+      }
+    }
+    for (const k of kids.flat()) {
+      if (k == null || k === false) continue;
+      el.append(k instanceof Node ? k : document.createTextNode(String(k)));
+    }
+    return el;
+  }
+  function btn(label, onClick, variant, disabled) {
+    return h('button', { type: 'button', class: 'btn small' + (variant ? ' ' + variant : ''), disabled: !!disabled, onclick: onClick }, label);
+  }
+  const LS = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } },
+    del(k) { try { localStorage.removeItem(k); } catch (e) { /* storage unavailable */ } },
+  };
+  const pad = (n) => String(n).padStart(2, '0');
+  function stampTime(t) {
+    if (!t) return '';
+    const d = new Date(t), now = new Date();
+    const a = new Date(now); a.setHours(0, 0, 0, 0);
+    const b = new Date(d); b.setHours(0, 0, 0, 0);
+    const dd = Math.round((b - a) / 86400000);
+    const hm = pad(d.getHours()) + ':' + pad(d.getMinutes());
+    if (dd === 0) return '今天 ' + hm;
+    if (dd === -1) return '昨天 ' + hm;
+    const y = d.getFullYear() !== now.getFullYear() ? d.getFullYear() + '.' : '';
+    return y + pad(d.getMonth() + 1) + '.' + pad(d.getDate()) + ' ' + hm;
+  }
+  function grow(ta) { ta.style.height = 'auto'; ta.style.height = (ta.scrollHeight + 2) + 'px'; }
+  let toastTimer;
+  function toast(msg) {
+    const el = $('#toast');
+    el.textContent = msg;
+    el.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.hidden = true; }, 3500);
+  }
+  function notice(msg) { const el = $('#notice'); el.hidden = !msg; el.textContent = msg || ''; }
+
+  /* ---------- config ---------- */
+  const CFG = window.QQH_CONFIG || {};
+  const BASE = typeof CFG.url === 'string' ? CFG.url.trim().replace(/\/+$/, '') : '';
+  const API_KEY = typeof CFG.key === 'string' ? CFG.key.trim() : '';
+  const configured = /^(https:\/\/\S+|http:\/\/localhost(:\d+)?)$/.test(BASE) && !/你的/.test(BASE + API_KEY) && API_KEY.length > 20;
+
+  /* ---------- crypto: 暗号 -> 加密钥匙 + 房间号 ---------- */
+  const enc = new TextEncoder(), dec = new TextDecoder();
+  function b64(bytes) { let s = ''; for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return btoa(s); }
+  function unb64(str) { const s = atob(str); const out = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i); return out; }
+  const hex = (bytes) => Array.from(bytes, (x) => x.toString(16).padStart(2, '0')).join('');
+  async function derive(phrase) {
+    const base = await crypto.subtle.importKey('raw', enc.encode(phrase.normalize('NFC')), 'PBKDF2', false, ['deriveBits']);
+    const bits = new Uint8Array(await crypto.subtle.deriveBits(
+      { name: 'PBKDF2', salt: enc.encode('qqh-mailbox-v1|' + BASE), iterations: 250000, hash: 'SHA-256' }, base, 512));
+    return { key: b64(bits.slice(0, 32)), room: hex(bits.slice(32)) };
+  }
+  let KEY = null;
+  async function seal(obj) {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, KEY, enc.encode(JSON.stringify(obj)));
+    return { payload: b64(new Uint8Array(ct)), iv: b64(iv) };
+  }
+  async function unseal(row) {
+    try {
+      const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(row.iv) }, KEY, unb64(row.payload));
+      return JSON.parse(dec.decode(pt));
+    } catch (e) { return null; }
+  }
+
+  /* ---------- Supabase ---------- */
+  async function rpc(fn, args) {
+    const headers = { apikey: API_KEY, 'Content-Type': 'application/json' };
+    if (API_KEY.startsWith('eyJ')) headers.Authorization = 'Bearer ' + API_KEY;
+    let res;
+    try {
+      res = await fetch(BASE + '/rest/v1/rpc/' + fn, { method: 'POST', headers, body: JSON.stringify(args) });
+    } catch (e) {
+      const err = new Error('network'); err.network = true; throw err;
+    }
+    if (!res.ok) { const err = new Error(await res.text().catch(() => '')); err.status = res.status; throw err; }
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
+  }
+  const CONN_MSG = '连不上邮筒。检查一下网络；如果超过一周没人用过，Supabase 可能暂停了项目，要去 Supabase 后台点 Restore 恢复。';
+  const SQL_MSG = '找不到数据表：请确认已经在 Supabase 的 SQL Editor 里运行过 setup.sql。';
+  const KEY_MSG = 'config.js 里的 key 不对：请换成 Supabase 的 publishable key 或 anon key。';
+
+  /* ---------- state ---------- */
+  const S = {
+    room: null,
+    role: null,
+    loaded: false,
+    connErr: '',                 // error message while the mailbox can't be reached
+    letters: [],
+    repliesBy: new Map(),
+    tab: LS.get('qqh.box', 'in') === 'out' ? 'out' : 'in',
+    menu: null,                  // letter id waiting for "确认撤回"
+    pending: new Set(),
+    drafts: {},
+    prevSeen: +LS.get('qqh.seen', 0) || 0,
+    seenStored: false,
+  };
+  const plain = new Map();       // id -> { payload, data }
+
+  let loading = false, again = false;
+  async function refresh() {
+    if (!S.room) return;
+    if (loading) { again = true; return; }
+    loading = true;
+    try {
+      const rows = await rpc('qqh_list', { p_room: S.room });
+      const items = [];
+      for (const r of Array.isArray(rows) ? rows : []) {
+        let c = plain.get(r.id);
+        if (!c || c.payload !== r.payload) { c = { payload: r.payload, data: await unseal(r) }; plain.set(r.id, c); }
+        if (!c.data || typeof c.data.b !== 'string') continue;
+        items.push({
+          id: r.id,
+          parent: r.parent || null,
+          body: c.data.b,
+          mine: c.data.r === S.role,
+          createdAt: Date.parse(r.created_at) || 0,
+          fakeRecall: r.fake_recall === true,
+        });
+      }
+      S.letters = items.filter((x) => !x.parent).sort((a, b) => b.createdAt - a.createdAt);
+      const by = new Map();
+      for (const x of items) if (x.parent) { if (!by.has(x.parent)) by.set(x.parent, []); by.get(x.parent).push(x); }
+      for (const a of by.values()) a.sort((x, y) => x.createdAt - y.createdAt);
+      S.repliesBy = by;
+      S.connErr = '';
+      S.loaded = true;
+      if (!S.seenStored) { S.seenStored = true; LS.set('qqh.seen', Date.now()); }
+    } catch (e) {
+      S.connErr = e && e.status === 404 ? SQL_MSG
+        : e && (e.status === 401 || e.status === 403) ? KEY_MSG
+        : CONN_MSG;
+    } finally {
+      loading = false;
+      render();
+      if (again) { again = false; refresh(); }
+    }
+  }
+
+  async function write(key, fn) {
+    if (S.pending.has(key)) return false;
+    S.pending.add(key); render();
+    try { await fn(); return true; }
+    catch (e) { toast(e && e.network ? '发送失败：连不上邮筒。' : '操作失败，请稍后再试。'); return false; }
+    finally { S.pending.delete(key); render(); }
+  }
+  async function send() {
+    const body = bodyEl.value.trim();
+    if (!body) { bodyEl.focus(); return; }
+    const ok = await write('send', async () => {
+      const box = await seal({ r: S.role, b: body });
+      await rpc('qqh_add', { p_room: S.room, p_parent: null, p_payload: box.payload, p_iv: box.iv });
+    });
+    if (!ok) return;
+    bodyEl.value = '';
+    LS.set('qqh.draft', '');
+    if (S.tab !== 'out') setTab('out');
+    refresh();
+  }
+  async function sendReply(id, ta) {
+    const body = ta.value.trim();
+    if (!body) { ta.focus(); return; }
+    const ok = await write('reply:' + id, async () => {
+      const box = await seal({ r: S.role, b: body });
+      await rpc('qqh_add', { p_room: S.room, p_parent: id, p_payload: box.payload, p_iv: box.iv });
+    });
+    if (!ok) return;
+    ta.value = '';
+    grow(ta);
+    delete S.drafts[id];
+    refresh();
+  }
+  async function fakeRecall(v, on) {
+    const ok = await write('recall:' + v.id, () => rpc('qqh_flag', { p_room: S.room, p_id: v.id, p_on: on }));
+    if (!ok) return;
+    toast(on ? 'Ta 会看到「有点想撤回」。' : '已取消。');
+    refresh();
+  }
+  async function realRecall(v) {
+    const ok = await write('recall:' + v.id, () => rpc('qqh_delete', { p_room: S.room, p_id: v.id }));
+    if (!ok) return;
+    S.menu = null;
+    toast('已撤回。');
+    refresh();
+  }
+  function setMenu(id) { S.menu = id; render(); }
+
+  /* ---------- view ---------- */
+  const hasNew = (v, reps) => (!v.mine && v.createdAt > S.prevSeen) || reps.some((r) => !r.mine && r.createdAt > S.prevSeen);
+  function meta(mine, t, isNew, extra) {
+    return h('div', { class: 'meta' },
+      h('span', { class: 'who' }, mine ? '我' : 'Ta'),
+      h('span', null, stampTime(t)),
+      isNew && h('span', { class: 'new' }, '新'),
+      extra);
+  }
+  function footFor(v) {
+    if (!v.mine) return [];
+    const busy = S.pending.has('recall:' + v.id);
+    if (S.menu === v.id) {
+      return [
+        h('span', { class: 'foot-note' }, '两边都会删除，无法恢复。'),
+        btn('算了', () => setMenu(null), 'ghost', busy),
+        btn(busy ? '撤回中…' : '确认撤回', () => realRecall(v), 'danger', busy),
+      ];
+    }
+    return [
+      v.fakeRecall && h('span', { class: 'foot-note' }, 'Ta 那边显示「有点想撤回」'),
+      v.fakeRecall
+        ? btn('不假装了', () => fakeRecall(v, false), 'ghost', busy)
+        : btn('假装撤回', () => fakeRecall(v, true), 'warm', busy),
+      btn('真的撤回', () => setMenu(v.id), 'danger', busy),
+    ].filter(Boolean);
+  }
+
+  const nodes = new Map();
+  let renderedTab = null;
+  function makeNode(id) {
+    const main = h('div', { class: 'item-main' });
+    const ta = h('textarea', { id: 'reply-' + id, rows: '1', maxlength: '1000', placeholder: '回复' });
+    ta.value = S.drafts[id] || '';
+    ta.addEventListener('input', () => { S.drafts[id] = ta.value; grow(ta); });
+    ta.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.isComposing) { e.preventDefault(); sendReply(id, ta); }
+    });
+    const sendBtn = h('button', { type: 'button', class: 'btn small', onclick: () => sendReply(id, ta) }, '回复');
+    const composer = h('div', { class: 'reply-box' }, h('label', { class: 'sr', for: 'reply-' + id }, '回复'), ta, sendBtn);
+    const foot = h('div', { class: 'item-foot' });
+    const el = h('article', { class: 'item' }, main, composer, foot);
+    return { el, main, ta, sendBtn, foot, sig: null };
+  }
+  function updateNode(n, v, reps) {
+    const sig = JSON.stringify([
+      v, reps.map((r) => [r.id, r.body, r.createdAt, r.mine]),
+      S.menu === v.id, S.pending.has('reply:' + v.id), S.pending.has('recall:' + v.id),
+      new Date().toDateString(),
+    ]);
+    if (n.sig === sig) return;
+    n.sig = sig;
+    n.el.className = 'item' + (v.mine ? ' mine' : '');
+    n.main.replaceChildren(...[
+      meta(v.mine, v.createdAt, !v.mine && v.createdAt > S.prevSeen,
+        v.fakeRecall && h('span', { class: 'wobble' }, v.mine ? '假装撤回中' : '有点想撤回')),
+      h('p', { class: 'text' }, v.body),
+      reps.length && h('ol', { class: 'replies', 'aria-label': '回复' }, reps.map((r) =>
+        h('li', null, meta(r.mine, r.createdAt, !r.mine && r.createdAt > S.prevSeen), h('p', { class: 'text' }, r.body))
+      )),
+    ].filter(Boolean));
+    n.foot.replaceChildren(...footFor(v));
+    n.sendBtn.disabled = S.pending.has('reply:' + v.id);
+  }
+  function setTab(tab) {
+    S.tab = tab;
+    S.menu = null;
+    LS.set('qqh.box', tab);
+    render();
+  }
+  function setBadge(el, n) { el.hidden = !n; el.textContent = n ? String(n) : ''; }
+
+  function render() {
+    if (!S.room) return;
+    sendBtn.disabled = S.pending.has('send');
+    notice(S.connErr || '');
+    document.querySelectorAll('.seg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tab === S.tab)));
+
+    const listEl = $('#list'), stateEl = $('#list-state');
+    if (!S.loaded) { stateEl.hidden = !!S.connErr; stateEl.textContent = '加载中……'; return; }
+
+    const repsOf = (v) => S.repliesBy.get(v.id) || [];
+    const inbox = S.letters.filter((v) => !v.mine);
+    const sent = S.letters.filter((v) => v.mine);
+    setBadge($('#badge-in'), inbox.filter((v) => hasNew(v, repsOf(v))).length);
+    setBadge($('#badge-out'), sent.filter((v) => hasNew(v, repsOf(v))).length);
+
+    if (renderedTab !== S.tab) { listEl.replaceChildren(); nodes.clear(); renderedTab = S.tab; }
+    const list = S.tab === 'out' ? sent : inbox;
+    const keep = new Set(list.map((v) => v.id));
+    for (const [id, n] of nodes) if (!keep.has(id)) { n.el.remove(); nodes.delete(id); }
+    list.forEach((v, i) => {
+      let n = nodes.get(v.id);
+      if (!n) { n = makeNode(v.id); nodes.set(v.id, n); }
+      updateNode(n, v, repsOf(v));
+      const at = listEl.children[i];
+      if (at !== n.el) listEl.insertBefore(n.el, at || null);
+    });
+    stateEl.hidden = list.length > 0;
+    stateEl.textContent = S.tab === 'out' ? '还没有寄出的信。' : '还没有收到信。';
+  }
+
+  /* ---------- screens ---------- */
+  const bodyEl = $('#body'), sendBtn = $('#send');
+  const setupEl = $('#setup'), appEl = $('#app'), logoutEl = $('#logout'), enterEl = $('#enter');
+  let timer = null;
+
+  function showSetup() {
+    appEl.hidden = true;
+    logoutEl.hidden = true;
+    setupEl.hidden = false;
+    notice('');
+  }
+  async function showApp(session) {
+    KEY = await crypto.subtle.importKey('raw', unb64(session.key), 'AES-GCM', false, ['encrypt', 'decrypt']);
+    S.room = session.room;
+    S.role = session.role;
+    setupEl.hidden = true;
+    appEl.hidden = false;
+    logoutEl.hidden = false;
+    render();
+    refresh();
+    clearInterval(timer);
+    timer = setInterval(() => { if (!document.hidden) refresh(); }, 15000);
+  }
+
+  setupEl.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const phrase = $('#phrase').value.trim();
+    const role = (document.querySelector('input[name="role"]:checked') || {}).value;
+    if ([...phrase].length < 8) { notice('暗号至少要 8 个字。'); $('#phrase').focus(); return; }
+    if (role !== 'A' && role !== 'B') { notice('选一下你是 A 还是 B。'); return; }
+    notice('');
+    enterEl.disabled = true;
+    enterEl.textContent = '正在进入…';
+    try {
+      const d = await derive(phrase);
+      const session = { key: d.key, room: d.room, role };
+      LS.set('qqh.session', session);
+      $('#phrase').value = '';
+      await showApp(session);
+    } catch (err) {
+      notice('进入失败，请换个浏览器再试。');
+    } finally {
+      enterEl.disabled = false;
+      enterEl.textContent = '进入';
+    }
+  });
+  logoutEl.addEventListener('click', () => {
+    LS.del('qqh.session');
+    clearInterval(timer);
+    KEY = null;
+    Object.assign(S, { room: null, role: null, loaded: false, connErr: '', letters: [], repliesBy: new Map(), menu: null });
+    plain.clear();
+    nodes.clear();
+    renderedTab = null;
+    $('#list').replaceChildren();
+    showSetup();
+  });
+
+  let draftTimer;
+  bodyEl.addEventListener('input', () => {
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(() => LS.set('qqh.draft', bodyEl.value), 400);
+  });
+  bodyEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.isComposing) { e.preventDefault(); send(); }
+  });
+  sendBtn.addEventListener('click', send);
+  document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+  const draft = LS.get('qqh.draft', '');
+  if (typeof draft === 'string') bodyEl.value = draft;
+
+  /* ---------- start ---------- */
+  if (!configured) { notice('还没有填好 config.js：按 README.md 第 3 步，把 Supabase 的地址和 key 填进去。'); return; }
+  if (!window.crypto || !crypto.subtle) { notice('请用 https:// 开头的地址打开这个页面。'); return; }
+  const saved = LS.get('qqh.session', null);
+  if (saved && typeof saved.key === 'string' && /^[0-9a-f]{64}$/.test(saved.room || '') && (saved.role === 'A' || saved.role === 'B')) {
+    showApp(saved).catch(() => { LS.del('qqh.session'); showSetup(); });
+  } else {
+    showSetup();
+  }
+})();
+</script>
+</body>
+</html>
